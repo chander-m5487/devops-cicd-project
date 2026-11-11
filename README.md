@@ -293,7 +293,7 @@ flowchart LR
   ci --> test[pytest]
   test --> build[Docker build, tag = commit SHA]
   build --> hub[Docker Hub]
-  hub --> cd[CD workflow - self-hosted runner on the Mac]
+  hub --> cd[Manual CD on the Mac - deploy-local.sh]
   cd --> helm[helm upgrade --install]
   helm --> mk[Minikube namespace devops-app]
   mk --> svc[NodePort Service]
@@ -309,9 +309,9 @@ flowchart LR
    export DOCKERHUB_USERNAME=<your-user>
    ./scripts/deploy-local.sh production <commit-sha>     # or: staging
    ```
-2. `.github/workflows/deploy.yml` - the same deployment as a GitHub Actions workflow that runs on a **self-hosted runner** on the Mac (labels `self-hosted, macOS, minikube`). It triggers after the CI workflow succeeds on `main`, or manually via *Run workflow*. The kubeconfig stays in `~/.kube/config` on the Mac and is never uploaded.
+2. `.github/workflows/deploy.yml` - the same deployment written as a GitHub Actions workflow. It is **manual only** (`workflow_dispatch`): it never runs automatically after CI, so no jobs sit queued. It needs a **self-hosted runner** on the Mac (labels `self-hosted, macOS, minikube`) so the kubeconfig stays in `~/.kube/config` and is never uploaded. This is an optional advanced step; the assignment's first implementation is the manual `deploy-local.sh` run above.
 
-   Register the runner: Repository -> Settings -> Actions -> Runners -> New self-hosted runner (macOS), follow the commands shown, and add the custom label `minikube` when running `./config.sh`.
+   To use it: register the runner (Repository -> Settings -> Actions -> Runners -> New self-hosted runner (macOS), add the custom label `minikube` when running `./config.sh`, start it with `./run.sh`), then Actions -> Deploy (CD - manual, local) -> Run workflow.
 
 Helm chart (`helm/devops-app`): `values.yaml` defaults, `values-staging.yaml` overrides; `--set image.tag=<sha>` pins the exact version built by CI.
 ```bash
@@ -321,7 +321,7 @@ helm history devops-app -n devops-app
 helm rollback devops-app 1 -n devops-app     # automated-style rollback
 ```
 
-**Complete flow:** change code -> push -> Actions runs tests -> builds image tagged with the commit SHA -> pushes to Docker Hub -> CD (self-hosted runner or `deploy-local.sh`) runs `helm upgrade` with that SHA -> Kubernetes performs a rolling update -> the new version is served through the NodePort Service.
+**Complete flow:** change code -> push -> Actions runs tests -> builds image tagged with the commit SHA -> pushes to Docker Hub -> CD (you run `deploy-local.sh` on the Mac; optionally the manual `deploy.yml` on a self-hosted runner) runs `helm upgrade` with that SHA -> Kubernetes performs a rolling update -> the new version is served through the NodePort Service.
 
 ---
 
@@ -356,7 +356,7 @@ helm rollback devops-app 1 -n devops-app     # automated-style rollback
 | HPA shows `<unknown>` | metrics-server missing | `minikube addons enable metrics-server` |
 | Docker login fails in Actions | Wrong/missing secret | Re-create `DOCKERHUB_USERNAME`/`DOCKERHUB_TOKEN`; the token needs Read & Write |
 | Workflow push rejected | PAT lacks `workflow` scope | Add the `workflow` scope to the classic PAT (or Workflows permission for fine-grained tokens) |
-| Deploy job stays "Queued" | No self-hosted runner online | Start the runner (`./run.sh`) and check its labels |
+| Manual Deploy (CD) run stays "Queued" | No self-hosted runner online | Start the runner (`./run.sh`) and check its labels, or deploy with `scripts/deploy-local.sh` instead |
 
 > If a token is ever pasted into a terminal, chat or file, revoke it immediately in GitHub -> Settings -> Developer settings and create a new one.
 
