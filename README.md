@@ -17,7 +17,7 @@ End-to-end CI/CD automation for a Python Flask app: **GitHub Actions** (test, bu
 10. [Viva Q&A](#10-viva-qa)
 11. [Deliverables checklist](#11-deliverables-checklist)
 
-## Repository structure
+## Repository structure.
 
 ```text
 devops-cicd-project/
