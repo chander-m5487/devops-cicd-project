@@ -1,0 +1,54 @@
+name: Deploy (CD)
+
+# CD runs on a SELF-HOSTED runner installed on the local Mac that runs Minikube.
+# The cluster credentials (~/.kube/config) therefore never leave the machine and are
+# never stored in GitHub, repository files or workflow logs.
+#
+# Trigger: automatically after the CI workflow succeeds on main, or manually.
+on:
+  workflow_run:
+    workflows: ["CI/CD"]
+    branches: [main]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        type: choice
+        options: [production, staging]
+        default: production
+      image_tag:
+        description: "Image tag to deploy (default: commit SHA of the triggering run)"
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy to Minikube with Helm
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: [self-hosted, macOS, minikube]
+    env:
+      ENVIRONMENT: ${{ inputs.environment || 'production' }}
+      IMAGE_TAG: ${{ inputs.image_tag || github.event.workflow_run.head_sha || github.sha }}
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Verify cluster access
+        run: |
+          kubectl config current-context
+          kubectl get nodes
+
+      - name: Deploy with Helm
+        run: ./scripts/deploy-local.sh "$ENVIRONMENT" "$IMAGE_TAG"
+
+      - name: Verify rollout
+        run: |
+          NS=$([ "$ENVIRONMENT" = "staging" ] && echo devops-app-staging || echo devops-app)
+          kubectl rollout status deployment/devops-app -n "$NS" --timeout=120s
+          kubectl get pods,svc -n "$NS"
