@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+.coverage
+htmlcov/
+
+# Generated logs (keep the directory itself via .gitkeep)
+logs/*
+!logs/.gitkeep
+
+# Secrets and local credentials - never commit these
+.env
+.env.*
+*.pem
+*.key
+kubeconfig
+*.kubeconfig
+
+# Helm packaged charts
+*.tgz
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

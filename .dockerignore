@@ -1,0 +1,20 @@
+# Docker reads .dockerignore from the root of the build context (repo root).
+# This is the same list as docker/.dockerignore (kept there to match the required structure).
+.git
+.github
+.gitignore
+.DS_Store
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.venv
+venv
+logs
+kubernetes
+helm
+scripts
+docs
+docker
+README.md
+.env
+.env.*

@@ -1,0 +1,43 @@
+replicaCount: 2
+
+image:
+  # Set with: --set image.repository=<dockerhub-user>/devops-project
+  repository: YOUR_DOCKERHUB_USERNAME/devops-project
+  # CI tags images with the git commit SHA; override with --set image.tag=<sha>
+  tag: latest
+  pullPolicy: Always
+
+containerPort: 5000
+
+service:
+  type: NodePort
+  port: 80
+  targetPort: 5000
+  nodePort: 30007
+
+config:
+  APP_ENV: production
+  LOG_LEVEL: info
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 250m
+    memory: 256Mi
+
+probes:
+  path: /health
+  liveness:
+    initialDelaySeconds: 10
+    periodSeconds: 10
+  readiness:
+    initialDelaySeconds: 5
+    periodSeconds: 5
+
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70

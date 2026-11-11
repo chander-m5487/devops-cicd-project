@@ -1,0 +1,7 @@
+replicaCount: 1
+
+service:
+  nodePort: 30008
+
+config:
+  APP_ENV: staging
