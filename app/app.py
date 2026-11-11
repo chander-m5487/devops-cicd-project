@@ -12,7 +12,7 @@ APP_ENV = os.getenv("APP_ENV", "development")
 
 @app.route("/")
 def home():
-    return "Welcome to DevOps CI/CD Project"
+    return "Hello, Welcome to DevOps CI/CD Project"
 
 
 @app.route("/health")
