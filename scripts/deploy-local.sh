@@ -27,8 +27,11 @@ done
 
 echo ">> Deploying $DOCKERHUB_USERNAME/devops-project:$IMAGE_TAG to namespace $NAMESPACE"
 
+# --force-conflicts: Helm 4 uses server-side apply. If someone ran `kubectl scale`, kubectl owns
+# .spec.replicas and the upgrade would fail with a field conflict; this lets Helm take it back.
 helm upgrade --install devops-app "$CHART" \
   --namespace "$NAMESPACE" --create-namespace \
+  --force-conflicts \
   ${EXTRA_VALUES[@]+"${EXTRA_VALUES[@]}"} \
   --set image.repository="$DOCKERHUB_USERNAME/devops-project" \
   --set image.tag="$IMAGE_TAG" \

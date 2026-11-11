@@ -321,6 +321,19 @@ helm history devops-app -n devops-app
 helm rollback devops-app 1 -n devops-app     # automated-style rollback
 ```
 
+### Rolling update and rollback walkthrough (tested)
+```bash
+export DOCKERHUB_USERNAME=<your-user>
+./scripts/deploy-local.sh production <old-sha>     # baseline (helm revision N)
+kubectl get pods -n devops-app -w                  # second terminal: watch new pods start before old ones stop
+./scripts/deploy-local.sh production <new-sha>     # rolling update (revision N+1)
+kubectl rollout status deployment/devops-app -n devops-app
+kubectl get deployment devops-app -n devops-app -o jsonpath='{.spec.template.spec.containers[0].image}'
+helm history devops-app -n devops-app
+helm rollback devops-app <N> -n devops-app         # back to the old image (creates revision N+2)
+```
+`deploy-local.sh` passes `--force-conflicts` so Helm 4 can update `.spec.replicas` even after a manual `kubectl scale`.
+
 **Complete flow:** change code -> push -> Actions runs tests -> builds image tagged with the commit SHA -> pushes to Docker Hub -> CD (you run `deploy-local.sh` on the Mac; optionally the manual `deploy.yml` on a self-hosted runner) runs `helm upgrade` with that SHA -> Kubernetes performs a rolling update -> the new version is served through the NodePort Service.
 
 ---
@@ -354,6 +367,12 @@ helm rollback devops-app 1 -n devops-app     # automated-style rollback
 | `OOMKilled` | Memory limit too low | Increase `resources.limits.memory` |
 | NodePort not reachable on macOS | Minikube Docker driver runs the node in a VM/container | `minikube service ... --url` or `kubectl port-forward` |
 | HPA shows `<unknown>` | metrics-server missing | `minikube addons enable metrics-server` |
+| `ImagePullBackOff` with `no match for platform in manifest` | CI built only `linux/amd64` (x86 runner) but Minikube on Apple Silicon is `linux/arm64` | Build a multi-arch image: `docker/setup-qemu-action` + `platforms: linux/amd64,linux/arm64` in `ci-cd.yml` (already applied) |
+| `UPGRADE FAILED: conflict ... conflict with "kubectl" with subresource "scale" ... .spec.replicas` | Helm 4 uses server-side apply; after `kubectl scale`, kubectl owns `.spec.replicas` and Helm's upgrade conflicts | Run the upgrade with `--force-conflicts` (already in `scripts/deploy-local.sh`). Failed upgrades appear as `failed` revisions in `helm history` and change nothing in the cluster |
+| `minikube start` fails with `PROVIDER_DOCKER_VERSION_EXIT_1` / cannot connect to docker.sock | Docker Desktop is installed but not running | `open -a Docker`, wait until it is running, then `minikube start --driver=docker` |
+| `kubectl get nodes` shows `NotReady` right after `minikube start` | Node is still starting (CNI not ready) | Wait about a minute and re-run `kubectl get nodes` |
+| `Error from server (NotFound): nodes "#" not found` | zsh does not treat `#` as a comment in interactive shells, so the comment became arguments | Do not put comments after commands in the terminal |
+| `minikube service ... --url` prints a URL but then seems to hang | With the Docker driver on macOS it opens a tunnel that must stay running | Keep that terminal open and use a second terminal for `curl` (port changes each time) |
 | Docker login fails in Actions | Wrong/missing secret | Re-create `DOCKERHUB_USERNAME`/`DOCKERHUB_TOKEN`; the token needs Read & Write |
 | Workflow push rejected | PAT lacks `workflow` scope | Add the `workflow` scope to the classic PAT (or Workflows permission for fine-grained tokens) |
 | Manual Deploy (CD) run stays "Queued" | No self-hosted runner online | Start the runner (`./run.sh`) and check its labels, or deploy with `scripts/deploy-local.sh` instead |
